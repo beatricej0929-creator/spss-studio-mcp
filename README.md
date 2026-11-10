@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.14%2B-blue.svg)]()
-[![Tests](https://img.shields.io/badge/tests-105%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-113%20passed-brightgreen.svg)]()
 
 `spss-studio-mcp` is an MCP (Model Context Protocol) server for **IBM SPSS
 Statistics**. It gives Agent clients such as Codex / Claude Code / Cursor:
@@ -21,14 +21,16 @@ Statistics**. It gives Agent clients such as Codex / Claude Code / Cursor:
   χ² / p / effect sizes);
 - **Verified methods**: all 37 analysis tools plus 11 supporting tools are
   verified on real SPSS Statistics 32 for Mac;
-- **Mediation / moderation**: `spss_mediation` (Baron & Kenny three-step
-  regression + Sobel test) and `spss_moderation` (mean-centred interaction
-  regression);
+- **Mediation / moderation**: `spss_process` runs the locally installed Hayes
+  PROCESS macro for model 4 bootstrap mediation (single or parallel mediators),
+  alongside the legacy `spss_mediation` three-step/Sobel workflow and
+  `spss_moderation` mean-centred interaction regression;
 - **Safety layer**: dangerous-command blocking, data path allowlist,
   `dry_run` preflight, and JSONL audit logging.
 
-Everything is verified on **IBM SPSS Statistics 32.0.0.0 for macOS** — 105 unit
-tests pass, including a self-contained real-machine reproduction manifest.
+The test suite currently reports **113 passed and 1 skipped**, including a
+self-contained real-machine reproduction manifest. Existing analysis families
+were verified on **IBM SPSS Statistics 32.0.0.0 for macOS**.
 Per-case results: [docs/macos_verification.md](docs/macos_verification.md).
 
 ---
@@ -40,7 +42,7 @@ SPSS 32.0.0.0 is verified and auto-detected under `/Applications`; without it
 only the file-reading tools work.
 
 ```bash
-git clone https://github.com/CongJyu/spss-studio-mcp.git
+git clone https://github.com/beatricej0929-creator/spss-studio-mcp.git
 cd spss-studio-mcp
 bash scripts/install_macos.sh          # .venv + deps + status + Claude Code config
 bash scripts/install_macos.sh --codex  # same, but writes the Codex config
@@ -156,6 +158,39 @@ python3 -m venv .venv
 | `SPSS_NO_SPSS`         | `0`                | Set to `1` to force file-only mode                                                           |
 | `SPSS_ALLOWED_DIRS`    | —                  | `;`-separated extra directories allowed as data sources                                      |
 | `SPSS_AUDIT_LOG`       | `logs/audit.jsonl` | Audit log path                                                                               |
+| `SPSS_PROCESS_MACRO_PATH` | auto-detected   | Trusted local `process.sps` used only by the dedicated `spss_process` tool                  |
+
+### Hayes PROCESS mediation
+
+`spss_process` safely loads the configured local PROCESS macro without exposing
+the blocked general-purpose `INSERT FILE` command. The first release supports
+PROCESS model 4: one mediator or multiple parallel mediators, bootstrap
+confidence intervals, optional covariates, pairwise indirect-effect contrasts,
+effect sizes, and standardized coefficients.
+
+PROCESS itself is **not bundled with this repository**. Download it from the
+[official Andrew F. Hayes website](https://www.afhayes.com/download.html), keep
+the supplied `process.sps` on the local machine, and either let this MCP detect
+it beside the SPSS installation or set `SPSS_PROCESS_MACRO_PATH`. Installing the
+optional SPSS graphical dialog is not required. PROCESS is third-party software
+and remains subject to its own copyright and usage terms.
+
+```python
+spss_process(
+    file_path="examples/data/mediation_study.sav",
+    x="autonomy",
+    y="performance",
+    mediators=["satisfaction"],
+    model=4,
+    bootstrap_samples=5000,
+    confidence=95,
+    seed=2026,
+)
+```
+
+The macro is auto-detected next to an installed SPSS distribution. If it is
+stored elsewhere, set `SPSS_PROCESS_MACRO_PATH=/absolute/path/process.sps` and
+restart the MCP client.
 
 Full walkthrough: [docs/tutorial.md](docs/tutorial.md).
 

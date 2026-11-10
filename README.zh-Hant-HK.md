@@ -9,7 +9,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.14%2B-blue.svg)]()
-[![Tests](https://img.shields.io/badge/tests-105%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-113%20passed-brightgreen.svg)]()
 
 `spss-studio-mcp` 是一個面向 **IBM SPSS Statistics** 的 MCP（Model Context Protocol）伺服器，為 Codex / Claude Code /
 Cursor 等 Agent 用戶端提供：
@@ -17,11 +17,12 @@ Cursor 等 Agent 用戶端提供：
 - **達到投稿水準的圖表**：11 類 `spss_chart_*` 工具，一鍵匯出 PNG / TIFF （1950×1500 @300 dpi），回傳檔案路徑可直接投稿；
 - **深度結果剖析**：OMS 文字 → Markdown 表格 + 結構化 JSON + 16 類分析統計摘要 （t / F / r / B / Wald / α / χ² / p / 效應量）；
 - **方法真機驗證**：全部 37 個分析工具加 11 個輔助工具均在真實 SPSS 32 for Mac 上驗證；
-- **中介 / 調節**：`spss_mediation`（Baron & Kenny 三步迴歸 + Sobel 檢驗）、
-  `spss_moderation`（中心化交互迴歸）；
+- **中介 / 調節**：`spss_process` 會呼叫本機 Hayes PROCESS，支援模型 4
+  的單一／並行中介 Bootstrap；另保留 `spss_mediation` 三步迴歸 + Sobel
+  檢驗與 `spss_moderation` 中心化交互迴歸；
 - **安全執行層**：危險指令攔截、資料路徑白名單、`dry_run` 預檢、JSONL 審計日誌。
 
-一切能力已在 **IBM SPSS Statistics 32.0.0.0（macOS）** 真機驗證 —— 105 個單元 測試全部通過，包括一個自包含的真機重現清單。逐條結果見
+目前測試套件為 **113 項通過、1 項跳過**，並包含自包含真機重現清單；既有分析能力已在 **IBM SPSS Statistics 32.0.0.0（macOS）** 驗證。逐條結果見
 [docs/macos_verification.zh-Hant-HK.md](docs/macos_verification.zh-Hant-HK.md)。
 
 ---
@@ -32,7 +33,7 @@ Cursor 等 Agent 用戶端提供：
 SPSS；若未安裝 SPSS，則只有讀取檔案的工具有效。
 
 ```bash
-git clone https://github.com/CongJyu/spss-studio-mcp.git
+git clone https://github.com/beatricej0929-creator/spss-studio-mcp.git
 cd spss-studio-mcp
 bash scripts/install_macos.sh          # .venv + 依賴 + 狀態檢查 + Claude Code 設定
 bash scripts/install_macos.sh --codex  # 同上，但改寫 Codex 設定
@@ -146,6 +147,31 @@ python3 -m venv .venv
 | `SPSS_NO_SPSS`         | `0`                | 設為 `1` 強制使用純檔案模式                                                |
 | `SPSS_ALLOWED_DIRS`    | —                  | 以 `;` 分隔的額外可用資料目錄                                              |
 | `SPSS_AUDIT_LOG`       | `logs/audit.jsonl` | 審計日誌路徑                                                               |
+| `SPSS_PROCESS_MACRO_PATH` | 自動偵測       | 專用 `spss_process` 工具所使用的可信本機 `process.sps` 路徑                 |
+
+### Hayes PROCESS 中介分析
+
+`spss_process` 在不開放通用 `INSERT FILE` 的前提下，安全載入已設定的本機
+PROCESS 巨集。首版支援模型 4：單一或多個並行中介、Bootstrap 信賴區間、
+控制變項、間接效應成對比較、效應量與標準化係數。
+
+本儲存庫**不附帶 PROCESS 本體**。請從
+[Andrew F. Hayes 官方網站](https://www.afhayes.com/download.html)下載，把其中的
+`process.sps` 保存在本機，然後讓本 MCP 從 SPSS 安裝位置旁自動偵測，或設定
+`SPSS_PROCESS_MACRO_PATH`。不需要安裝可選的 SPSS 圖形選單。PROCESS 是第三方
+軟件，仍受其自身的版權與使用條款約束。
+
+```python
+spss_process(
+    file_path="examples/data/mediation_study.sav",
+    x="autonomy",
+    y="performance",
+    mediators=["satisfaction"],
+    bootstrap_samples=5000,
+    confidence=95,
+    seed=2026,
+)
+```
 
 完整教學見 [docs/tutorial.zh-Hant-HK.md](docs/tutorial.zh-Hant-HK.md)。
 

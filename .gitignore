@@ -31,6 +31,7 @@ spss_runner_*.py
 spss_viewer_*.spv
 spss_syntax_*.sps
 oms_*.txt
+*.tmp
 
 # OS/editor
 .DS_Store

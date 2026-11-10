@@ -15,6 +15,7 @@ from spss_mcp.method_templates import (
     render_manova,
     render_mixed,
     render_ordinal_regression,
+    render_process,
     render_twostep_cluster,
 )
 from spss_mcp.method_validation import (
@@ -29,6 +30,7 @@ from spss_mcp.method_validation import (
     ManovaParams,
     MixedParams,
     OrdinalRegressionParams,
+    ProcessParams,
     TwoStepClusterParams,
 )
 
@@ -45,6 +47,15 @@ class MethodDefinition:
 
 
 METHOD_REGISTRY: dict[str, MethodDefinition] = {
+    "spss_process": MethodDefinition(
+        tool_name="spss_process",
+        command_family="PROCESS model 4",
+        support_level="registry-backed",
+        schema=ProcessParams,
+        renderer=render_process,
+        assertions=("TOTAL EFFECT MODEL", "INDIRECT EFFECT(S) OF X ON Y"),
+        doc_tags=("mediation", "bootstrap", "macro-backed", "parallel-mediators"),
+    ),
     "spss_logistic_regression": MethodDefinition(
         tool_name="spss_logistic_regression",
         command_family="LOGISTIC REGRESSION",

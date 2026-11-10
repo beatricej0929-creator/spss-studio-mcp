@@ -332,6 +332,11 @@ async def spss_check_status(ctx: Context) -> str:
             f"| pandas | {'✅ v' + caps['pandas_version'] if caps['pandas_version'] else '❌ Not installed'} |",
             f"| IBM SPSS Statistics | {'✅ Found' if caps['spss'] else '❌ Not found'} |",
             f"| Persistent SPSS engine | {engine_cell} |",
+            (
+                f"| Hayes PROCESS macro | ✅ v{caps['process_macro_version'] or 'unknown'} |"
+                if caps.get("process_macro")
+                else "| Hayes PROCESS macro | ❌ Not found |"
+            ),
             "",
         ]
 
@@ -348,6 +353,9 @@ async def spss_check_status(ctx: Context) -> str:
         if caps["spss"]:
 
             lines.append(f"**SPSS path:** `{caps['spss_path']}`\n")
+
+            if caps.get("process_macro_path"):
+                lines.append(f"**PROCESS macro:** `{caps['process_macro_path']}`\n")
 
         else:
 
@@ -686,6 +694,98 @@ async def spss_import_csv(
 
 
 # ─── Group 2: SPSS Analysis Tools (require SPSS installation) ─────────────────
+
+
+@mcp.tool(
+    name="spss_process",
+    description=(
+        "Run the locally installed Hayes PROCESS macro for model 4 mediation. "
+        "Supports one mediator or multiple parallel mediators, bootstrap confidence "
+        "intervals, covariates, total/direct/indirect effects, pairwise indirect-effect "
+        "contrasts, effect sizes, and standardized coefficients. The trusted macro path "
+        "is auto-detected or configured with SPSS_PROCESS_MACRO_PATH; callers cannot "
+        "supply an arbitrary macro file."
+    ),
+)
+async def spss_process(
+    file_path: str,
+    x: str,
+    y: str,
+    mediators: list[str],
+    model: Literal[4] = 4,
+    covariates: Optional[list[str]] = None,
+    confidence: float = 95.0,
+    bootstrap_samples: int = 5000,
+    total_effect: bool = True,
+    pairwise_contrasts: bool = True,
+    effect_size: bool = True,
+    standardized_coefficients: bool = False,
+    normal_theory_test: bool = False,
+    seed: Optional[int] = None,
+    save_viewer_output: bool = True,
+    save_syntax_file: bool = True,
+    ctx: Context = None,
+) -> str:
+    try:
+        err = _require_spss(ctx)
+        if err:
+            return f"Error: {err}"
+
+        from spss_mcp.config import get_process_macro_path, get_process_macro_version
+        from spss_mcp.method_templates import render_process
+        from spss_mcp.method_validation import ProcessParams
+        from spss_mcp.spss_runner import run_syntax
+
+        macro_path = get_process_macro_path()
+        if not macro_path:
+            return (
+                "Error: Hayes PROCESS macro was not found. Install PROCESS or set "
+                "SPSS_PROCESS_MACRO_PATH to the trusted local process.sps file."
+            )
+
+        params = ProcessParams(
+            x=x,
+            y=y,
+            mediators=mediators,
+            model=model,
+            covariates=covariates,
+            confidence=confidence,
+            bootstrap_samples=bootstrap_samples,
+            total_effect=total_effect,
+            pairwise_contrasts=pairwise_contrasts,
+            effect_size=effect_size,
+            standardized_coefficients=standardized_coefficients,
+            normal_theory_test=normal_theory_test,
+            seed=seed,
+        )
+        macro = Path(macro_path).read_text(encoding="windows-1252", errors="replace")
+        call_syntax = render_process(file_path, params)
+        result = await run_syntax(
+            call_syntax,
+            save_viewer_output=save_viewer_output,
+            save_syntax_file=save_syntax_file,
+            # PROCESS expands to a large MATRIX program whose physical line
+            # boundaries must survive the Python Integration Package bridge.
+            submit_as_lines=True,
+            # Load the macro definition in a separate Submit call, matching the
+            # vendor workflow (run process.sps, then run a PROCESS command).
+            prelude_syntax=macro,
+            prelude_as_lines=True,
+        )
+        rendered = _format_run_result(result)
+        if not result.get("error"):
+            version = get_process_macro_version(macro_path) or "unknown"
+            rendered = (
+                f"**Hayes PROCESS v{version} — model {model}**\n\n"
+                f"- X: `{x}`\n- Y: `{y}`\n"
+                f"- Mediator(s): `{', '.join(mediators)}`\n"
+                f"- Bootstrap samples: {bootstrap_samples}\n\n{rendered}"
+            )
+        return rendered
+    except Exception as e:
+        if ctx:
+            await ctx.error(f"spss_process error: {e}")
+        return f"Error: {e}"
 
 
 @mcp.tool(

@@ -42,13 +42,13 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/CongJyu/spss-studio-mcp"
-Repository = "https://github.com/CongJyu/spss-studio-mcp"
-Documentation = "https://github.com/CongJyu/spss-studio-mcp/tree/main/docs"
+Homepage = "https://github.com/beatricej0929-creator/spss-studio-mcp"
+Repository = "https://github.com/beatricej0929-creator/spss-studio-mcp"
+Documentation = "https://github.com/beatricej0929-creator/spss-studio-mcp/tree/main/docs"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
+    "pytest>=7.0.0,<9.0.0",
     "pytest-asyncio>=0.23.0",
     "black>=23.0.0",
     "isort>=5.12.0",

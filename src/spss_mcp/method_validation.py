@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class MethodParams(BaseModel):
@@ -182,4 +182,61 @@ class GlmUnivariateParams(MethodParams):
             raise ValueError(
                 "posthoc_method is required when posthoc variables are provided"
             )
+        return self
+
+
+class ProcessParams(MethodParams):
+    """Validated parameters for Hayes PROCESS model 4.
+
+    Model 4 supports one mediator or multiple parallel mediators.  Keeping the
+    first release to one well-defined model prevents silently generating a
+    different causal graph than the caller intended.
+    """
+
+    x: str
+    y: str
+    mediators: list[str] = Field(min_length=1, max_length=10)
+    model: Literal[4] = 4
+    covariates: Optional[list[str]] = None
+    confidence: float = Field(default=95.0, gt=50.0, lt=100.0)
+    bootstrap_samples: int = Field(default=5000, ge=1000, le=100000)
+    total_effect: bool = True
+    pairwise_contrasts: bool = True
+    effect_size: bool = True
+    standardized_coefficients: bool = False
+    normal_theory_test: bool = False
+    seed: Optional[int] = Field(default=None, ge=1, le=2147483646)
+
+    @field_validator("x", "y")
+    @classmethod
+    def validate_scalar_variable(cls, value: str) -> str:
+        return cls._validate_variable(value)
+
+    @field_validator("mediators", "covariates")
+    @classmethod
+    def validate_variable_list(cls, values: Optional[list[str]]) -> Optional[list[str]]:
+        if values is None:
+            return None
+        return [cls._validate_variable(value) for value in values]
+
+    @staticmethod
+    def _validate_variable(value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > 64:
+            raise ValueError("SPSS variable names must contain 1-64 characters")
+        first = value[0]
+        if not (first.isalpha() or first in "@#$"):
+            raise ValueError(f"Invalid SPSS variable name: {value!r}")
+        if not all(char.isalnum() or char in "_@#$" for char in value[1:]):
+            raise ValueError(f"Invalid SPSS variable name: {value!r}")
+        return value
+
+    @model_validator(mode="after")
+    def validate_roles(self) -> "ProcessParams":
+        mediators = list(self.mediators)
+        covariates = list(self.covariates or [])
+        all_variables = [self.x, self.y, *mediators, *covariates]
+        folded = [value.casefold() for value in all_variables]
+        if len(folded) != len(set(folded)):
+            raise ValueError("X, Y, mediators, and covariates must be distinct")
         return self

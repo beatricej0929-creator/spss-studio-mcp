@@ -19,6 +19,10 @@
 
 - `spss_runner.run_syntax`: the unified security gate (shared by all tools) — it first blocks dangerous commands, then validates the `data_file` parameter and the `GET FILE='...'` paths in the syntax; every successful execution writes an audit entry.
 - `server.spss_run_syntax`: adds the `dry_run` parameter; `spss_structured_result` also passes through the `run_syntax` security gate.
+- `server.spss_process`: reads only the auto-detected or
+  `SPSS_PROCESS_MACRO_PATH`-configured local `process.sps`; the macro path is not
+  accepted from tool callers. This enables Hayes PROCESS without permitting
+  arbitrary `INSERT FILE` execution.
 
 ## Audit Events
 

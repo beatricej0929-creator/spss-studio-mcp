@@ -12,6 +12,7 @@ from spss_mcp.method_validation import (
     ManovaParams,
     MixedParams,
     OrdinalRegressionParams,
+    ProcessParams,
     TwoStepClusterParams,
 )
 
@@ -253,4 +254,26 @@ def render_glm_univariate(file_path: str, params: GlmUnivariateParams) -> str:
     syntax += "  /PRINT=DESCRIPTIVE ETASQ HOMOGENEITY\n"
     syntax += "  /CRITERIA=ALPHA(.05)\n"
     syntax += "  /DESIGN.\n"
+    return syntax
+
+
+def render_process(file_path: str, params: ProcessParams) -> str:
+    """Render a PROCESS model 4 call (macro definition is loaded separately)."""
+    syntax = f"GET FILE='{_slash_file(file_path)}'.\n"
+    # PROCESS v3 retains /vars only to detect and reject legacy v2 syntax.
+    syntax += f"PROCESS y={params.y}\n"
+    syntax += f"  /x={params.x}\n"
+    syntax += f"  /m={' '.join(params.mediators)}\n"
+    if params.covariates:
+        syntax += f"  /cov={' '.join(params.covariates)}\n"
+    syntax += f"  /model={params.model}\n"
+    syntax += f"  /boot={params.bootstrap_samples}\n"
+    syntax += f"  /conf={params.confidence:g}\n"
+    syntax += f"  /total={int(params.total_effect)}\n"
+    contrast = int(params.pairwise_contrasts and len(params.mediators) > 1)
+    syntax += f"  /contrast={contrast}\n"
+    syntax += f"  /effsize={int(params.effect_size)}\n"
+    syntax += f"  /stand={int(params.standardized_coefficients)}\n"
+    syntax += f"  /normal={int(params.normal_theory_test)}\n"
+    syntax += f"  /seed={params.seed if params.seed is not None else 'random'}.\n"
     return syntax
